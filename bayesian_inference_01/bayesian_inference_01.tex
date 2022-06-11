@@ -1,0 +1,224 @@
+
+\documentclass[20pt]{beamer}
+\usepackage{amssymb,amsmath}
+\usepackage{dsfont}
+\usepackage{fancyvrb}  % for including files
+\usepackage{empheq}
+\usepackage{graphicx}
+\usepackage{cancel}
+\usepackage{hyperref}
+
+
+\hypersetup{colorlinks=true}
+
+\DeclareMathOperator{\sgn}{sgn}
+
+\geometry{letterpaper, landscape}
+
+\mode<presentation>{\usetheme{Warsaw}}
+
+\title{Bayesian Inference using Markov Chain Monte Carlo (MCMC), Part 1}
+\date{September 14, 2021}
+\author{William Wong}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+
+
+\begin{frame}{Outline}
+\begin{itemize}
+\item Markov chain
+
+\item Monte Carlo
+
+\item Conjugate priors
+
+\item PyMC3
+
+\item Facebook Prophet
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Probability}
+\begin{align*}
+  \cancel{\Pr( A ) = \Pr(A | B) \Pr(B)}
+\end{align*}
+\end{frame}
+
+
+\begin{frame}{Probability (con't)}
+\begin{itemize}
+  \item The previous equation is generally NOT TRUE.
+
+  \item The law of total probability $\Pr( A ) = \Pr(A | B_1) \Pr(B_1) + \Pr(A | B_2) \Pr(B_2) + \ldots$
+
+  \item $\theta$: model parameters, $X$: observations
+    \begin{align*}
+    \Pr( \theta | X ) & = \frac{\Pr( X | \theta) \Pr( \theta )}
+      {\Pr( X )} \\
+    \Pr( \theta ) & = \text{prior; can make our own choice!} \\
+    \Pr( X | \theta ) & = \text{likelihood; fixed by model} \\
+    \Pr( \theta | X ) & = \text{posterior} \\
+    \Pr( X ) & = \text{evidence; fixed by data}
+    \end{align*}
+
+  \item The math gets messy when we rewrite $\Pr(X)$ using the law of total probability.
+    \begin{align*}
+    \Pr( \theta | X ) & = \frac{\Pr( X | \theta) \Pr( \theta )}
+      {\Pr( X )} \\
+      & = \frac{\Pr( X | \theta) \Pr( \theta )}
+        {\int \Pr(X | \theta) \Pr(\theta) d\theta}
+    \end{align*}
+  \item When we update our belief, it gets very expensive because we have to compute an integral.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Conjugate Priors}
+\begin{itemize}
+  \item Turn the messy integration into multipication
+  \item Can think of conjugate priors as eigenfunctions.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{MCMC}
+\begin{itemize}
+\item \href{https://www.youtube.com/watch?v=0F0QoMCSKJ4}{Stata video, part 1 (00:30 to 4:30)}.
+  \begin{itemize}
+    \item coin toss. $\theta = \Pr(\text{head})$
+    \item $\text{posterior} \propto \text{prior} \bullet \text{likelihood}$. Generally it is not a multiplication but note that we are using a conjugate prior!
+    \item $\Pr(\theta | y) = \Pr(\theta) \Pr(y | \theta)
+= \text{Beta}(1, 1) \bullet \text{Binomial}(4, 10, \theta)$ // 4 heads out of 10 tosses.
+  \end{itemize}
+
+
+
+\item \href{https://www.youtube.com/watch?v=OTO1DygELpY}{Stata video, part 2 (00:00 to 5:01)}.
+  \begin{enumerate}
+    \item Markov chain
+    \item Monte Carlo
+    \item Metropolis-Hastings algorithm
+  \end{enumerate}
+\end{itemize}
+
+\textbf{Question --- why do we sometimes reject the value of $\theta$ in the Metropolis-Hastings algorithm?}
+\end{frame}
+
+
+
+
+
+\begin{frame}{PyMC3}
+\begin{itemize}
+
+\item PyMC3 supports Bayesian inference on user-defined probabilistic models.
+
+\item To go over a Jupyter notebook.
+
+\item Example 1 --- Linear regression where the response function is normally distributed, where the mean is a linear function of two predictor variables, $X_1$ and $X_2$.
+\begin{align*}
+  Y  &\sim \mathcal{N}(\mu, \sigma^2) \\
+  \mu &= \alpha + \beta_1 X_1 + \beta_2 X_2
+\end{align*}
+Priors
+\begin{align*}
+  \alpha &\sim \mathcal{N}(0, 100) \\
+  \beta_i &\sim \mathcal{N}(0, 100) \\
+  \sigma &\sim \lvert\mathcal{N}(0, 1){\rvert}
+\end{align*}
+
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{PyMC3 (con't)}
+\begin{itemize}
+
+  \item Example 2 --- Coal mining disasters
+
+In our model, \textbf{the disaster rate $r_t$ changes at some time $s$}.
+\begin{align*}
+  D_t &\sim \text{Poisson}(r_t), r_t= \begin{cases}
+   e, & \text{if } t \le s \\
+   l, & \text{if } t > s
+   \end{cases} \\
+  % D_t &\sim \text{Pois}(r_t) \\
+  % r_t & = \begin{cases}
+  %  %1\\
+  %  %2\\
+  %  e, & \text{if } t \le s \\
+  %  l, & \text{if } t > s \\
+  %  \end{cases}\\
+  s &\sim \text{Uniform}(t_l, t_h)\\
+  e &\sim \text{exp}(1)\\
+  l &\sim \text{exp}(1)
+\end{align*}
+
+The parameters are defined as follows:
+  \begin{itemize}
+   \item $D_t$: The number of disasters in year $t$
+   \item $r_t$: The rate parameter of the Poisson distribution of disasters in year $t$.
+   \item $s$: The year in which the rate parameter changes (the switchpoint).
+   \item $e$: The rate parameter before the switchpoint $s$.
+   \item $l$: The rate parameter after the switchpoint $s$.
+   \item $t_l$, $t_h$: The lower and upper boundaries of year $t$.
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Facebook Prophet}
+\begin{itemize}
+\item Applies Bayesian inference where we choose the prior and the likelihood.
+\item Finds the MAP (maximum a posteriori) estimate of the parameters via nonlinear regression.
+\item Uses MCMC (e.g., Gibbs sampling) to sample the posterior probability distribution.
+\item In principle, we should be able to develop our own model(s) inside the same framework.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Facebook Prophet (con't)}
+Priors
+\begin{align*}
+k & \sim \mathcal{N}(0, 5) \\
+m & \sim \mathcal{N}(0, 5) \\
+\epsilon & \sim \mathcal{N}(0, 0.5) \\
+\delta & \sim \text{Double Exponential}(0, \tau) \\
+\beta & \sim \mathcal{N}(0, \sigma)
+\end{align*}
+
+Logistic likelihood
+\begin{equation*}
+y \sim \mathcal{N}\left( \frac{C}
+  {1 + \exp(-(k + A \delta) (t - (m + A \gamma))) + X \beta}, \sigma \right)
+\end{equation*}
+
+Linear likelihood
+\begin{equation*}
+y \sim \mathcal{N}((k + A \delta) t + (m + A \gamma) + X \beta, \sigma)
+\end{equation*}
+
+\textbf{Question --- where do the seasonal oscillations come from in the model?}
+\end{frame}
+
+
+
+
+\begin{frame}{Discussions}
+\begin{itemize}
+\item How is MCMC used in Bayesian inference?
+
+\item In Part 2, we will go over the Causal Impact package from Google.
+\end{itemize}
+\end{frame}
+
+
+\end{document}
+
